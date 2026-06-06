@@ -1,0 +1,17 @@
+namespace IngestionService.Models
+{
+    public class Sensor
+    {
+        public string Id { get; set; } = string.Empty;
+        public double MinTemperature { get; set; }
+        public double MaxTemperature { get; set; }
+        public DataQuality Quality { get; set; } = DataQuality.GOOD;
+        public bool IsActive { get; set; } = false;
+        public DateTime? LastSeenAt { get; set; }
+        public double AlarmThreshold1 { get; set; }
+        public double AlarmThreshold2 { get; set; }
+        public double AlarmThreshold3 { get; set; }
+
+        public ICollection<SensorReading> Readings { get; set; } = new List<SensorReading>();
+    }
+}
