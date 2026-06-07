@@ -56,7 +56,7 @@ namespace SensorClient
                     Console.ForegroundColor = ConsoleColor.Red;
                     break;
             }
-            Console.WriteLine($"{Config.Id} - {Math.Round(temperature, 2)}°C - {DateTime.Now}");
+            Console.WriteLine($"{Config.Id} - {Math.Round(temperature, 2)}°C - {DateTime.UtcNow}");
             Console.ResetColor();
         }
 
@@ -68,7 +68,7 @@ namespace SensorClient
                 double temperature = Config.MinTemperature + _random.NextDouble() * (Config.MaxTemperature - Config.MinTemperature);
                 int priority = CheckAlarm(temperature);
                 PrintToConsole(temperature, priority);
-                SensorMessage message = new SensorMessage(Config.Id, temperature, DateTime.Now, priority, Config.Quality, MessageId++);
+                SensorMessage message = new SensorMessage(Config.Id, temperature, DateTime.UtcNow, priority, Config.Quality, MessageId++);
                 try
                 {
                     await client.PostAsJsonAsync(serverUrl, message);

@@ -10,5 +10,16 @@ namespace IngestionService.Models
         public int AlarmPriority { get; set; } = 0;
         public bool IsConsensus { get; set; } = false;
         public Sensor Sensor { get; set; } = null!;
+
+        public SensorReading(string sensorId, double temperature, DateTime timestamp, DataQuality quality, int alarmPriority, Sensor sensor)
+        {
+            Id = Guid.NewGuid();
+            SensorId = sensorId;
+            Temperature = temperature;
+            Timestamp = timestamp;
+            Quality = quality;
+            AlarmPriority = alarmPriority;
+            Sensor = sensor;
+        }
     }
 }
