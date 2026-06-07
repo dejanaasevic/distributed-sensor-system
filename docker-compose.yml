@@ -7,6 +7,10 @@ services:
             - POSTGRES_DB=${POSTGRES_DB}
         ports:
             - 5432:5432
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+            interval: 5s
+            retries: 5
     ingestion:
         build: ./src/IngestionService
         ports:
@@ -14,11 +18,15 @@ services:
         environment:
             - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
         depends_on:
-            - db
+            db:
+                condition: service_healthy
     consensus:
         build: ./src/ConsensusService
+        environment:
+            - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
         depends_on:
-            - db
+            db:
+                condition: service_healthy
     notification:
         build: ./src/NotificationService
         ports:
