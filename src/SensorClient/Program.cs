@@ -1,4 +1,5 @@
 ﻿using SensorClient;
+using System.Net.Http.Json;
 
 var httpClient = new HttpClient();
 var serverUrl = "http://localhost:5001/api/ingest";
@@ -18,6 +19,20 @@ for(int i = 1; i <=5; i++)
     SensorConfig config = new SensorConfig(id, minTemperature, maxTemperature, alarmThreshold1, alarmThreshold2, alarmThreshold3, DataQuality.GOOD);
     Sensor sensor = new Sensor(config);
     sensors.Add(sensor);
+}
+
+foreach (var sensor in sensors)
+{
+    try
+    {
+        await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
+        Console.WriteLine($"{sensor.Config.Id} registered");
+    }
+    catch (HttpRequestException)
+    {
+        Console.WriteLine($"{sensor.Config.Id} registration failed");
+    }
+
 }
 
 var tasks = sensors.Select(s => s.RunAsync(httpClient, serverUrl));

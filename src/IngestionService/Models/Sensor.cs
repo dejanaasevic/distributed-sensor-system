@@ -13,5 +13,16 @@ namespace IngestionService.Models
         public double AlarmThreshold3 { get; set; }
 
         public ICollection<SensorReading> Readings { get; set; } = new List<SensorReading>();
+
+        public Sensor(string id, double minTemperature, double maxTemperature, DataQuality quality, double alarmThreshold1, double alarmThreshold2, double alarmThreshold3)
+        {
+            Id = id;
+            MinTemperature = minTemperature;
+            MaxTemperature = maxTemperature;
+            Quality = quality;
+            AlarmThreshold1 = alarmThreshold1;
+            AlarmThreshold2 = alarmThreshold2;
+            AlarmThreshold3 = alarmThreshold3;
+        }
     }
 }
