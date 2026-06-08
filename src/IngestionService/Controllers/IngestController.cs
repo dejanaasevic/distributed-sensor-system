@@ -1,6 +1,7 @@
 using IngestionService.Data;
 using IngestionService.DTO;
 using IngestionService.Models;
+using IngestionService.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IngestionService.Controllers
@@ -8,16 +9,18 @@ namespace IngestionService.Controllers
 
     [ApiController]
     [Route("api/[controller]")]
-
+    
     public class IngestController : ControllerBase
     {
         private readonly AppDbContext _db;
         private readonly HttpClient _httpClient;
+        private readonly ISensorSecurityService _securityService;
 
-        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory)
+        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService)
         {
             _db = db;
             _httpClient = httpClientFactory.CreateClient();
+            _securityService = securityService;
         }
 
         [HttpPost]
@@ -29,11 +32,46 @@ namespace IngestionService.Controllers
                 return BadRequest($"Sensor with {dto.SensorId} not found");
             }
 
+            // Rate Limiting Validation
+            if (_securityService.IsRateLimited(dto.SensorId))
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return StatusCode(429, "Rate limit exceeded.");
+            }
+
+            // Replay Attack Validation)
+            if (_securityService.IsReplayAttack(dto.SensorId, dto.MessageId, dto.Timestamp))
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Security violation: Potential Replay Attack detected.");
+            }
+
+            // Cryptographic Signature Verification
+            if (!_securityService.VerifySignature(dto, sensor.PublicKey))
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Security violation: Cryptographic signature verification failed.");
+            }
+
+            // Value Range Validation
+            if (dto.Temperature < sensor.MinTemperature || dto.Temperature > sensor.MaxTemperature)
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Malicious behavior: Data value out of realistic sensor bounds.");
+            }
+
+            // success path: update metadata and record clean readings
             sensor.LastSeenAt = DateTime.UtcNow;
             sensor.IsActive = true;
+            sensor.Quality = DataQuality.GOOD;
 
-            SensorReading sensorReading = new SensorReading(dto.SensorId, dto.Temperature, DateTime.UtcNow, dto.Quality, dto.AlarmPriority, sensor);
+            SensorReading sensorReading = new SensorReading(dto.SensorId, dto.Temperature, DateTime.UtcNow, sensor.Quality, dto.AlarmPriority, sensor);
             _db.SensorReadings.Add(sensorReading);
+
             if (dto.AlarmPriority > 0)
             {
                 await _httpClient.PostAsJsonAsync("http://notification:5002/api/notify", dto);
@@ -47,12 +85,13 @@ namespace IngestionService.Controllers
         public async Task<IActionResult> RegisterSensor([FromBody] SensorRegistrationDto dto)
         {
             var sensor = await _db.Sensors.FindAsync(dto.Id);
-            if(sensor != null)
+            if (sensor != null)
             {
-                return BadRequest($"Sensor with {dto.Id} already exist");
-
+                return BadRequest($"Sensor with {dto.Id} already exists");
             }
-            sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3);
+
+            sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKey);
+
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
             return Ok();

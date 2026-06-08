@@ -10,5 +10,6 @@ namespace IngestionService.DTO
         public int AlarmPriority { get; set; }
         public DataQuality Quality { get; set; }
         public int MessageId { get; set; }
+        public string Signature { get; set; } = string.Empty;
     }
 }

@@ -15,8 +15,9 @@ namespace SensorClient
         public int AlarmPriority { get; set; }
         public DataQuality Quality { get; set; }
         public int MessageId { get; set; }
+        public string Signature { get; set; }
 
-        public SensorMessage(string sensorId, double temperature, DateTime timestamp, int alarmPriority, DataQuality quality, int messageId)
+        public SensorMessage(string sensorId, double temperature, DateTime timestamp, int alarmPriority, DataQuality quality, int messageId, string signature)
         {
             SensorId = sensorId;
             Temperature = temperature;
@@ -24,6 +25,7 @@ namespace SensorClient
             AlarmPriority = alarmPriority;
             Quality = quality;
             MessageId = messageId;
+            Signature = signature;
         }
     }
 }
