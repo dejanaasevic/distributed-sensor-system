@@ -109,7 +109,7 @@ public static class ConsoleManager
             Console.Clear();
             Console.SetCursorPosition(0, 0);
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("======================= SECURITY EXPERIMENT CONTROL INTERFACE =======================");
+            Console.WriteLine("================================ ATTACK SIMULATION ================================");
             Console.ResetColor();
             Console.WriteLine(" 1. Inject Out-of-Bounds Data Payload  | 5. Trigger DoS Burst Flood Attack");
             Console.WriteLine(" 2. Inject Tampered Cryptic Signatures | 6. Suppress Attacks (Restore Baseline Nodes)");
@@ -117,7 +117,7 @@ public static class ConsoleManager
             Console.WriteLine(" 4. Trigger Inactivity Silent Dropout  |");
             Console.WriteLine("-------------------------------------------------------------------------------------");
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(" Notice: Dashboard menu remains fixed. Real-time telemetry frames stream asynchronously below.");
+            Console.WriteLine(" Notice: Dashboard menu remains fixed.");
             Console.ResetColor();
             Console.WriteLine();
             Console.Write("Select an option (1-7): ");
@@ -125,7 +125,7 @@ public static class ConsoleManager
 
             Console.SetCursorPosition(0, 11);
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("=============================== LIVE MONITORING TELEMETRY STREAM ===============================");
+            Console.WriteLine("=============================== LIVE MONITORING STREAM ===============================");
             Console.ResetColor();
         }
     }
