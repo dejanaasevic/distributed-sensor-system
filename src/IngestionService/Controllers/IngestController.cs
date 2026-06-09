@@ -14,32 +14,26 @@ namespace IngestionService.Controllers
         private readonly HttpClient _httpClient;
         private readonly ISensorSecurityService _securityService;
         private readonly ISensorBlockManager _blockManager;
+        private readonly IAlarmNotificationService _alarmNotificationService;
 
-        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager)
+        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager, IAlarmNotificationService alarmNotificationService)
         {
             _db = db;
             _httpClient = httpClientFactory.CreateClient();
             _securityService = securityService;
             _blockManager = blockManager;
+            _alarmNotificationService = alarmNotificationService;
         }
 
         [HttpPost]
         public async Task<IActionResult> Ingest([FromBody] SensorMessageDto dto)
         {
             // Core DDoS Protection Verification
-            if (_blockManager.IsBlocked(dto.SensorId))
-            {
-                return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} is blocked due to spamming.");
-            }
-
             if (_blockManager.RecordRequestAndCheckBlock(dto.SensorId))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[SECURITY] Sensor {dto.SensorId} blocked for 30 seconds due to rate limit violation (>10 msg/sec).");
-                Console.ResetColor();
-                return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} blocked for 30 seconds due to spamming.");
+                return StatusCode(429, $"Sensor {dto.SensorId} is temporarily blocked due to excessive requests (DoS protection).");
             }
-
+            
             var sensor = await _db.Sensors.FindAsync(dto.SensorId);
             if (sensor == null)
             {
@@ -85,7 +79,7 @@ namespace IngestionService.Controllers
                 3 => ConsoleColor.Red,
                 _ => ConsoleColor.White
             };
-            Console.WriteLine($"[SECURE PAYLOAD DISPATCH] Sensor: {dto.SensorId} | Temp: {decryptedData.Temperature}°C | Priority: {decryptedData.AlarmPriority}");
+            Console.WriteLine($"[SECURE PAYLOAD DISPATCH] Sensor: {dto.SensorId} | Temp: {decryptedData.Temperature}ï¿½C | Priority: {decryptedData.AlarmPriority}");
             Console.ResetColor();
 
             // Value Metric Range Sanity Check
@@ -106,15 +100,8 @@ namespace IngestionService.Controllers
 
             if (decryptedData.AlarmPriority > 0)
             {
-                var notificationPayload = new
-                {
-                    dto.SensorId,
-                    decryptedData.Temperature,
-                    dto.Timestamp,
-                    decryptedData.AlarmPriority,
-                    sensor.Quality
-                };
-                await _httpClient.PostAsJsonAsync("http://notification:5002/api/notify", notificationPayload);
+                string formattedString = $"Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
+                await _alarmNotificationService.SendNotificationAsync(formattedString);
             }
 
             await _db.SaveChangesAsync();

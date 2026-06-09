@@ -18,6 +18,7 @@ services:
         tty: true
         environment:
             - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+            - NotificationHubUrl=http://notification:8080/notificationHub
         depends_on:
             db:
                 condition: service_healthy
