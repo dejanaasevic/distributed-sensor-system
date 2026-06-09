@@ -2,7 +2,6 @@ using IngestionService.Data;
 using IngestionService.DTO;
 using IngestionService.Models;
 using IngestionService.Services;
-using IngestionService.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IngestionService.Controllers
