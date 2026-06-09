@@ -15,6 +15,7 @@ services:
         build: ./src/IngestionService
         ports:
             - 5001:8080
+        tty: true
         environment:
             - ConnectionStrings__DefaultConnection=Host=db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
         depends_on:
