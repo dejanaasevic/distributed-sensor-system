@@ -6,10 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace IngestionService.Controllers
 {
-
     [ApiController]
     [Route("api/[controller]")]
-    
     public class IngestController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -28,20 +26,7 @@ namespace IngestionService.Controllers
         [HttpPost]
         public async Task<IActionResult> Ingest([FromBody] SensorMessageDto dto)
         {
-            Console.ForegroundColor = dto.AlarmPriority switch
-            {
-                1 => ConsoleColor.Yellow,
-                2 => ConsoleColor.DarkYellow,
-                3 => ConsoleColor.Red,
-                _ => ConsoleColor.White // Handles 0 and any unexpected numbers (default)
-            };
-
-            string formattedString = $"Received message from Sensor {dto.SensorId} with Temperature {dto.Temperature} at {dto.Timestamp} and AlarmPriority {dto.AlarmPriority}";
-            Console.WriteLine(formattedString);
-
-            // Resets the console to the system default instead of forcing hardcoded White
-            Console.ResetColor();
-
+            // Core DDoS Protection Verification
             if (_blockManager.IsBlocked(dto.SensorId))
             {
                 return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} is blocked due to spamming.");
@@ -55,15 +40,13 @@ namespace IngestionService.Controllers
                 return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} blocked for 30 seconds due to spamming.");
             }
 
-
             var sensor = await _db.Sensors.FindAsync(dto.SensorId);
             if (sensor == null)
             {
-                return BadRequest($"Sensor with {dto.SensorId} not found");
+                return BadRequest($"Sensor with ID {dto.SensorId} not found.");
             }
 
-
-            // Rate Limiting Validation
+            // Node Level Rate-Limiting Validation
             if (_securityService.IsRateLimited(dto.SensorId))
             {
                 sensor.Quality = DataQuality.BAD;
@@ -71,7 +54,7 @@ namespace IngestionService.Controllers
                 return StatusCode(429, "Rate limit exceeded.");
             }
 
-            // Replay Attack Validation)
+            // Replay Attack Control
             if (_securityService.IsReplayAttack(dto.SensorId, dto.MessageId, dto.Timestamp))
             {
                 sensor.Quality = DataQuality.BAD;
@@ -79,37 +62,59 @@ namespace IngestionService.Controllers
                 return BadRequest("Security violation: Potential Replay Attack detected.");
             }
 
+            // Asymmetric Crypto Verification
+            if (!_securityService.VerifySignature(dto, sensor.PublicKey))
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Security violation: Cryptographic signature verification failed.");
+            }
 
-            // Cryptographic Signature Verification
-            // if (!_securityService.VerifySignature(dto, sensor.PublicKey))
-            // {
-            //     sensor.Quality = DataQuality.BAD;
-            //     await _db.SaveChangesAsync();
-            //     return BadRequest("Security violation: Cryptographic signature verification failed.");
-            // }
+            DecryptedPayloadDTO? decryptedData = _securityService.DecryptMessage(dto, sensor.SymmetricKey);
+            if (decryptedData == null)
+            {
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Security violation: Payload decryption failed.");
+            }
 
+            Console.ForegroundColor = decryptedData.AlarmPriority switch
+            {
+                1 => ConsoleColor.Yellow,
+                2 => ConsoleColor.DarkYellow,
+                3 => ConsoleColor.Red,
+                _ => ConsoleColor.White
+            };
+            Console.WriteLine($"[SECURE PAYLOAD DISPATCH] Sensor: {dto.SensorId} | Temp: {decryptedData.Temperature}°C | Priority: {decryptedData.AlarmPriority}");
+            Console.ResetColor();
 
-            // Value Range Validation
-            if (dto.Temperature < sensor.MinTemperature || dto.Temperature > sensor.MaxTemperature)
+            // Value Metric Range Sanity Check
+            if (decryptedData.Temperature < sensor.MinTemperature || decryptedData.Temperature > sensor.MaxTemperature)
             {
                 sensor.Quality = DataQuality.BAD;
                 await _db.SaveChangesAsync();
                 return BadRequest("Malicious behavior: Data value out of realistic sensor bounds.");
             }
 
-
-            // success path: update metadata and record clean readings
+            
             sensor.LastSeenAt = DateTime.UtcNow;
             sensor.IsActive = true;
             sensor.Quality = DataQuality.GOOD;
 
-
-            SensorReading sensorReading = new SensorReading(dto.SensorId, dto.Temperature, DateTime.UtcNow, sensor.Quality, dto.AlarmPriority, sensor);
+            SensorReading sensorReading = new SensorReading(dto.SensorId, decryptedData.Temperature, DateTime.UtcNow, sensor.Quality, decryptedData.AlarmPriority, sensor);
             _db.SensorReadings.Add(sensorReading);
 
-            if (dto.AlarmPriority > 0)
+            if (decryptedData.AlarmPriority > 0)
             {
-                await _httpClient.PostAsJsonAsync("http://notification:5002/api/notify", dto);
+                var notificationPayload = new
+                {
+                    dto.SensorId,
+                    decryptedData.Temperature,
+                    dto.Timestamp,
+                    decryptedData.AlarmPriority,
+                    sensor.Quality
+                };
+                await _httpClient.PostAsJsonAsync("http://notification:5002/api/notify", notificationPayload);
             }
 
             await _db.SaveChangesAsync();
@@ -122,7 +127,7 @@ namespace IngestionService.Controllers
             var sensor = await _db.Sensors.FindAsync(dto.Id);
             if (sensor != null)
             {
-                return BadRequest($"Sensor with {dto.Id} already exists");
+                return BadRequest($"Sensor with ID {dto.Id} already exists.");
             }
 
             sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKey);
@@ -136,7 +141,7 @@ namespace IngestionService.Controllers
         public IActionResult BlockSensor(string sensorId)
         {
             _blockManager.BlockSensor(sensorId, 30);
-            Console.WriteLine($"[Test] Sensor {sensorId} manually blocked for 30 seconds.");
+            Console.WriteLine($"[TEST] Sensor {sensorId} manually blocked for 30 seconds.");
             return Ok($"Sensor {sensorId} blocked for 30 seconds.");
         }
     }

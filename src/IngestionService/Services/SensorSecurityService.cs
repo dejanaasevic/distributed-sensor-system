@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using IngestionService.DTO;
 
@@ -10,6 +11,7 @@ public interface ISensorSecurityService
     bool IsRateLimited(string sensorId);
     bool IsReplayAttack(string sensorId, int messageId, DateTime timestamp);
     bool VerifySignature(SensorMessageDto message, string publicKeyPem);
+    DecryptedPayloadDTO? DecryptMessage(SensorMessageDto encryptedDto, string aesKeyBase64);
 }
 
 public class SensorSecurityService : ISensorSecurityService
@@ -74,7 +76,7 @@ public class SensorSecurityService : ISensorSecurityService
             using var rsa = RSA.Create();
             rsa.ImportFromPem(publicKeyPem);
 
-            string rawData = $"{message.SensorId}:{message.Temperature}:{message.Timestamp:O}:{message.MessageId}";
+            string rawData = $"{message.SensorId}:{message.MessageId}:{message.Timestamp:O}:{message.Ciphertext}";
             byte[] dataBytes = Encoding.UTF8.GetBytes(rawData);
             byte[] signatureBytes = Convert.FromBase64String(message.Signature);
 
@@ -83,6 +85,36 @@ public class SensorSecurityService : ISensorSecurityService
         catch
         {
             return false;
+        }
+    }
+
+    public DecryptedPayloadDTO? DecryptMessage(SensorMessageDto encryptedDto, string aesKeyBase64)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(encryptedDto.Ciphertext) || string.IsNullOrEmpty(encryptedDto.Iv))
+                return null;
+
+            byte[] ciphertext = Convert.FromBase64String(encryptedDto.Ciphertext);
+            byte[] iv = Convert.FromBase64String(encryptedDto.Iv);
+            byte[] key = Convert.FromBase64String(aesKeyBase64);
+
+            using Aes aes = Aes.Create();
+            aes.Key = key;
+            aes.IV = iv;
+
+            using var decryptor = aes.CreateDecryptor();
+            using var ms = new MemoryStream(ciphertext);
+            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
+            using var sr = new StreamReader(cs);
+
+            string decryptedJson = sr.ReadToEnd();
+
+            return JsonSerializer.Deserialize<DecryptedPayloadDTO>(decryptedJson);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

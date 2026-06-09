@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace SensorClient
 {
@@ -17,6 +15,8 @@ namespace SensorClient
         public bool IsReplayAttack { get; set; } = false;
         public bool IsInactivityAttack { get; set; } = false;
         public bool TriggerFloodAttack { get; set; } = false;
+
+        public DateTime? BlockedUntil { get; set; } = null;
 
         private readonly Random _random = new Random();
 
@@ -59,6 +59,21 @@ namespace SensorClient
         {
             while (true)
             {
+                if (BlockedUntil.HasValue)
+                {
+                    var remainingSeconds = (BlockedUntil.Value - DateTime.UtcNow).TotalSeconds;
+                    if (remainingSeconds > 0)
+                    {
+                        ConsoleManager.WriteLog($"[BLOCKED] {Config.Id} - Server rejection active. Cooldown: {Math.Ceiling(remainingSeconds)}s remaining...", ConsoleColor.Red);
+                        await Task.Delay(1000); 
+                        continue;
+                    }
+                    else
+                    {
+                        BlockedUntil = null;
+                        ConsoleManager.WriteLog($"[RESTORED] {Config.Id} - Server block expired. Resuming standard telemetry reporting.", ConsoleColor.Green);
+                    }
+                }
                 if (IsInactivityAttack)
                 {
                     await Task.Delay(2000);
@@ -75,46 +90,94 @@ namespace SensorClient
                 }
 
                 int priority = CheckAlarm(temperature);
+                PrintToConsole(temperature, priority, currentMode);
+
+                var internalPayload = new
+                {
+                    Temperature = Math.Round(temperature, 2),
+                    AlarmPriority = priority,
+                    Quality = Config.Quality
+                };
+
+                string ciphertext;
+                string ivString;
+
+                using (Aes aes = Aes.Create())
+                {
+                    aes.Key = Convert.FromBase64String(Config.SymmetricKey);
+
+                    byte[] ivBytes = new byte[16];
+                    using (var rng = new RNGCryptoServiceProvider())
+                    {
+                        rng.GetBytes(ivBytes);
+                    }
+                    aes.IV = ivBytes;
+                    ivString = Convert.ToBase64String(aes.IV);
+
+                    using var encryptor = aes.CreateEncryptor();
+                    byte[] rawJsonBytes = JsonSerializer.SerializeToUtf8Bytes(internalPayload);
+                    byte[] encryptedBytes = encryptor.TransformFinalBlock(rawJsonBytes, 0, rawJsonBytes.Length);
+                    ciphertext = Convert.ToBase64String(encryptedBytes);
+                }
 
                 int msgIdToSend = MessageId++;
+                DateTime timestampToSend = DateTime.UtcNow;
+
                 if (IsReplayAttack)
                 {
                     msgIdToSend = 1;
+                    timestampToSend = DateTime.UtcNow.AddMinutes(-10); 
                     currentMode = "ATTACK: REPLAY";
                 }
 
-                string signature = "VALID_PARTNER_RSA_SIGNATURE_MOCK";
+                string rawDataToSign = $"{Config.Id}:{msgIdToSend}:{timestampToSend:O}:{ciphertext}";
+                string signature;
+
                 if (IsBadSignatureAttack)
                 {
-                    signature = "INVALID_TAMPERED_SIGNATURE";
+                    signature = "INVALID_TAMPERED_SIGNATURE_MOCK_DATA_XYZ=";
                     currentMode = "ATTACK: BAD_SIGNATURE";
                 }
+                else
+                {
+                    using (var rsa = new RSACryptoServiceProvider())
+                    {
+                        rsa.FromXmlString(Config.PrivateKeyXml);
+                        byte[] dataBytes = Encoding.UTF8.GetBytes(rawDataToSign);
 
-                PrintToConsole(temperature, priority, currentMode);
+                        byte[] signatureBytes = rsa.SignData(dataBytes, CryptoConfig.MapNameToOID("SHA256"));
+                        signature = Convert.ToBase64String(signatureBytes);
+                    }
+                }
+
                 try
                 {
                     if (TriggerFloodAttack)
                     {
+                        PrintToConsole(temperature, priority, "ATTACK: DoS FLOOD");
                         ConsoleManager.WriteLog($"[!] Launching DoS Flood attack from {Config.Id}...", ConsoleColor.Red, ConsoleColor.DarkYellow);
                         for (int i = 0; i < 15; i++)
                         {
-                            var floodMessage = new SensorMessage(Config.Id, temperature, DateTime.UtcNow, priority, Config.Quality, MessageId++, signature);
+                            var floodMessage = new SensorMessage(Config.Id, MessageId++, DateTime.UtcNow, ivString, ciphertext, signature);
                             _ = client.PostAsJsonAsync(serverUrl, floodMessage);
                         }
                         TriggerFloodAttack = false;
+                        BlockedUntil = DateTime.UtcNow.AddSeconds(30);
+                        continue;
                     }
                     else
                     {
-                        var message = new SensorMessage(Config.Id, temperature, DateTime.UtcNow, priority, Config.Quality, msgIdToSend, signature);
+                        PrintToConsole(temperature, priority, currentMode);
+                        var message = new SensorMessage(Config.Id, msgIdToSend, timestampToSend, ivString, ciphertext, signature);
                         await client.PostAsJsonAsync(serverUrl, message);
                     }
                 }
                 catch (HttpRequestException)
                 {
-                    ConsoleManager.WriteLog($"[{Config.Id}] Error: Server unreachable, cached entry skipped.", ConsoleColor.Gray);
+                    ConsoleManager.WriteLog($"[{Config.Id}] Error: Server unreachable, message dropped.", ConsoleColor.Gray);
                 }
 
-                await Task.Delay(_random.Next(1000, 10000));
+                await Task.Delay(_random.Next(1000, 5000));
             }
         }
     }
