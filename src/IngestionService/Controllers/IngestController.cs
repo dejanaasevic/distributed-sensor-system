@@ -2,6 +2,7 @@ using IngestionService.Data;
 using IngestionService.DTO;
 using IngestionService.Models;
 using IngestionService.Services;
+using IngestionService.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IngestionService.Controllers
@@ -15,17 +16,32 @@ namespace IngestionService.Controllers
         private readonly AppDbContext _db;
         private readonly HttpClient _httpClient;
         private readonly ISensorSecurityService _securityService;
+        private readonly ISensorBlockManager _blockManager;
 
-        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService)
+        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager)
         {
             _db = db;
             _httpClient = httpClientFactory.CreateClient();
             _securityService = securityService;
+            _blockManager = blockManager;
         }
 
         [HttpPost]
         public async Task<IActionResult> Ingest([FromBody] SensorMessageDto dto)
         {
+            if (_blockManager.IsBlocked(dto.SensorId))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} is blocked due to spamming.");
+            }
+
+            if (_blockManager.RecordRequestAndCheckBlock(dto.SensorId))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[SECURITY] Sensor {dto.SensorId} blocked for 30 seconds due to rate limit violation (>10 msg/sec).");
+                Console.ResetColor();
+                return StatusCode(StatusCodes.Status429TooManyRequests, $"Sensor {dto.SensorId} blocked for 30 seconds due to spamming.");
+            }
+
             var sensor = await _db.Sensors.FindAsync(dto.SensorId);
             if (sensor == null)
             {
@@ -95,6 +111,14 @@ namespace IngestionService.Controllers
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
             return Ok();
+        }
+
+        [HttpPost("block/{sensorId}")]
+        public IActionResult BlockSensor(string sensorId)
+        {
+            _blockManager.BlockSensor(sensorId, 30);
+            Console.WriteLine($"[Test] Sensor {sensorId} manually blocked for 30 seconds.");
+            return Ok($"Sensor {sensorId} blocked for 30 seconds.");
         }
     }
 }
