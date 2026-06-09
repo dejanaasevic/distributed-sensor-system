@@ -16,13 +16,15 @@ namespace IngestionService.Controllers
         private readonly HttpClient _httpClient;
         private readonly ISensorSecurityService _securityService;
         private readonly ISensorBlockManager _blockManager;
+        private readonly IAlarmNotificationService _alarmNotificationService;
 
-        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager)
+        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager, IAlarmNotificationService alarmNotificationService)
         {
             _db = db;
             _httpClient = httpClientFactory.CreateClient();
             _securityService = securityService;
             _blockManager = blockManager;
+            _alarmNotificationService = alarmNotificationService;
         }
 
         [HttpPost]
@@ -36,9 +38,13 @@ namespace IngestionService.Controllers
                 _ => ConsoleColor.White // Handles 0 and any unexpected numbers (default)
             };
 
-            string formattedString = $"Received message from Sensor {dto.SensorId} with Temperature {dto.Temperature} at {dto.Timestamp} and AlarmPriority {dto.AlarmPriority}";
-            Console.WriteLine(formattedString);
-
+            if (dto.AlarmPriority > 0)
+            {
+                string formattedString = $"Sensor {dto.SensorId} triggered alarm with priority {dto.AlarmPriority} with Temperature {dto.Temperature} at {dto.Timestamp:HH:mm:ss}";
+                await _alarmNotificationService.SendNotificationAsync(formattedString);
+                Console.WriteLine(formattedString);            
+            }
+  
             // Resets the console to the system default instead of forcing hardcoded White
             Console.ResetColor();
 

@@ -16,6 +16,7 @@ builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounte
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 builder.Services.AddSingleton<ISensorBlockManager, SensorBlockManager>();
 builder.Services.AddSingleton<ISensorSecurityService, SensorSecurityService>();
+builder.Services.AddSingleton<IAlarmNotificationService, AlarmNotificationService>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
