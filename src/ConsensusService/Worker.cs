@@ -61,8 +61,9 @@ namespace ConsensusService
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var end = DateTime.UtcNow;
-            var start = end.AddSeconds(-60);
+            var now = DateTime.UtcNow;
+            var end = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc);
+            var start = end.AddMinutes(-1);
 
             _logger.LogInformation("Consensus calculation window: {start:HH:mm:ss} to {end:HH:mm:ss}", start, end);
 
@@ -82,17 +83,26 @@ namespace ConsensusService
 
             // 1. Detect Malicious Sensors (stopped responding / lagging)
             // If an active sensor has sent no readings in the last 60 seconds, it's marked as BAD.
+            var activeSensorIdsWithReadings = await db.SensorReadings
+                .Where(r => r.Timestamp >= start && r.Timestamp <= end && !r.IsConsensus && r.SensorId != SystemConsensusId)
+                .Select(r => r.SensorId)
+                .Distinct()
+                .ToListAsync(stoppingToken);
+
             foreach (var sensor in sensors)
             {
                 if (sensor.IsActive)
                 {
-                    var hasReadings = await db.SensorReadings
-                        .AnyAsync(r => r.SensorId == sensor.Id && r.Timestamp >= start && r.Timestamp <= end && !r.IsConsensus, stoppingToken);
-
-                    if (!hasReadings)
+                    if (!activeSensorIdsWithReadings.Contains(sensor.Id))
                     {
                         _logger.LogWarning("Sensor {sensorId} sent no readings in the last minute. Marking as MALICIOUS (Quality = BAD).", sensor.Id);
                         sensor.Quality = DataQuality.BAD;
+                    }
+                    else if (sensor.Quality == DataQuality.BAD)
+                    {
+                        // recover sensor
+                        _logger.LogInformation("Sensor {sensorId} resumed sending readings. Restoring Quality to GOOD.", sensor.Id);
+                        sensor.Quality = DataQuality.GOOD;
                     }
                 }
             }

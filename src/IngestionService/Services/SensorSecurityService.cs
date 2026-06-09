@@ -57,13 +57,16 @@ public class SensorSecurityService : ISensorSecurityService
             return true;
         }
 
-        var cacheKey = $"msg_{sensorId}_{messageId}";
-        if (_cache.TryGetValue(cacheKey, out _))
+        var lastIdKey = $"last_id_{sensorId}";
+        if (_cache.TryGetValue(lastIdKey, out int lastMessageId))
         {
-            return true;
+            if (messageId <= lastMessageId)
+            {
+                return true; 
+            }
         }
 
-        _cache.Set(cacheKey, true, TimeSpan.FromMinutes(2));
+        _cache.Set(lastIdKey, messageId, TimeSpan.FromDays(1));
         return false;
     }
 
