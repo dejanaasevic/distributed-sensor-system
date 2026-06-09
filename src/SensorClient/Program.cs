@@ -10,12 +10,13 @@ var sensors = new List<Sensor>();
 for (int i = 1; i <= 5; i++)
 {
     string id = $"SENSOR-{i}";
-    double minTemperature = random.NextDouble() * 40.0 + 280.0;
-    double maxTemperature = random.NextDouble() * (320.0 - minTemperature) + minTemperature;
+    double minTemperature = random.NextDouble() * 40.0 + 20.0; // Realistic values between 20°C and 60°C
+    double maxTemperature = random.NextDouble() * (100.0 - minTemperature) + minTemperature;
     double alarmThreshold1 = random.NextDouble() * (maxTemperature - minTemperature) + minTemperature;
     double alarmThreshold2 = random.NextDouble() * (maxTemperature - alarmThreshold1) + alarmThreshold1;
     double alarmThreshold3 = random.NextDouble() * (maxTemperature - alarmThreshold2) + alarmThreshold2;
 
+    // The constructor handles high-entropy CSPRNG cryptographic key generation automatically
     SensorConfig config = new SensorConfig(id, minTemperature, maxTemperature, alarmThreshold1, alarmThreshold2, alarmThreshold3, DataQuality.GOOD);
     Sensor sensor = new Sensor(config);
     sensors.Add(sensor);
@@ -26,8 +27,9 @@ foreach (var sensor in sensors)
 {
     try
     {
+        // Transmits configuration containing SymmetricKey and PublicKeyXml to the server database
         await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
-        Console.WriteLine($"{sensor.Config.Id} registered successfully.");
+        Console.WriteLine($"{sensor.Config.Id} registered with secure keys successfully.");
     }
     catch (HttpRequestException)
     {

@@ -12,10 +12,11 @@ namespace IngestionService.Models
         public double AlarmThreshold2 { get; set; }
         public double AlarmThreshold3 { get; set; }
         public string PublicKey { get; set; } = string.Empty;
+        public string SymmetricKey { get; set; } = string.Empty;
 
         public ICollection<SensorReading> Readings { get; set; } = new List<SensorReading>();
 
-        public Sensor(string id, double minTemperature, double maxTemperature, DataQuality quality, double alarmThreshold1, double alarmThreshold2, double alarmThreshold3, string publicKey = "")
+        public Sensor(string id, double minTemperature, double maxTemperature, DataQuality quality, double alarmThreshold1, double alarmThreshold2, double alarmThreshold3, string publicKey = "", string symmetricKey = "")
         {
             Id = id;
             MinTemperature = minTemperature;
@@ -25,6 +26,7 @@ namespace IngestionService.Models
             AlarmThreshold2 = alarmThreshold2;
             AlarmThreshold3 = alarmThreshold3;
             PublicKey = publicKey;
+            SymmetricKey = symmetricKey;
         }
     }
 }
