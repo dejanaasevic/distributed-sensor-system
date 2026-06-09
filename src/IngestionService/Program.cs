@@ -1,5 +1,6 @@
 using AspNetCoreRateLimit;
 using IngestionService.Data;
+using IngestionService.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -13,12 +14,13 @@ builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection(
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
 builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+builder.Services.AddSingleton<ISensorBlockManager, SensorBlockManager>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
 app.UseHttpsRedirection();
-app.UseIpRateLimiting();
+// app.UseIpRateLimiting();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
