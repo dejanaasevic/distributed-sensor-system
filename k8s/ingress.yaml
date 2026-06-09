@@ -23,3 +23,10 @@ spec:
             name: report-service   
             port:
               number: 80
+      - path: /notificationHub
+        pathType: Prefix
+        backend:
+          service:
+            name: notification-service   
+            port:
+              number: 80
