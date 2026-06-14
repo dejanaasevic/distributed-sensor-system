@@ -34,19 +34,11 @@ namespace IngestionService.Controllers
             {
                 return StatusCode(429, $"Sensor {dto.SensorId} is temporarily blocked due to excessive requests (DoS protection).");
             }
-            
+
             var sensor = await _db.Sensors.FindAsync(dto.SensorId);
             if (sensor == null)
             {
                 return BadRequest($"Sensor with ID {dto.SensorId} not found.");
-            }
-
-            // Node Level Rate-Limiting Validation
-            if (_securityService.IsRateLimited(dto.SensorId))
-            {
-                sensor.Quality = DataQuality.BAD;
-                await _db.SaveChangesAsync();
-                return StatusCode(429, "Rate limit exceeded.");
             }
 
             // Replay Attack Control
@@ -80,18 +72,16 @@ namespace IngestionService.Controllers
                 3 => ConsoleColor.Red,
                 _ => ConsoleColor.White
             };
-            Console.WriteLine($"[SECURE PAYLOAD DISPATCH] Sensor: {dto.SensorId} | Temp: {decryptedData.Temperature}�C | Priority: {decryptedData.AlarmPriority}");
-            Console.ResetColor();
 
-            // Value Metric Range Sanity Check
-            if (decryptedData.Temperature < sensor.MinTemperature || decryptedData.Temperature > sensor.MaxTemperature)
+            if (decryptedData.AlarmPriority > 0)
             {
-                sensor.Quality = DataQuality.BAD;
-                await _db.SaveChangesAsync();
-                return BadRequest("Malicious behavior: Data value out of realistic sensor bounds.");
+                string formattedString = $"Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
+                await _alarmNotificationService.SendNotificationAsync(formattedString);
             }
 
-            
+            Console.ResetColor();
+
+
             sensor.LastSeenAt = DateTime.UtcNow;
             sensor.IsActive = true;
             sensor.Quality = DataQuality.GOOD;
@@ -99,11 +89,6 @@ namespace IngestionService.Controllers
             SensorReading sensorReading = new SensorReading(dto.SensorId, decryptedData.Temperature, DateTime.UtcNow, sensor.Quality, decryptedData.AlarmPriority, sensor);
             _db.SensorReadings.Add(sensorReading);
 
-            if (decryptedData.AlarmPriority > 0)
-            {
-                string formattedString = $"Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
-                await _alarmNotificationService.SendNotificationAsync(formattedString);
-            }
 
             await _db.SaveChangesAsync();
             return Ok();

@@ -8,7 +8,6 @@ namespace IngestionService.Services;
 
 public interface ISensorSecurityService
 {
-    bool IsRateLimited(string sensorId);
     bool IsReplayAttack(string sensorId, int messageId, DateTime timestamp);
     bool VerifySignature(SensorMessageDto message, string publicKeyPem);
     DecryptedPayloadDTO? DecryptMessage(SensorMessageDto encryptedDto, string aesKeyBase64);
@@ -26,28 +25,6 @@ public class SensorSecurityService : ISensorSecurityService
         _cache = cache;
     }
 
-    public bool IsRateLimited(string sensorId)
-    {
-        var currentSecond = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var cacheKey = $"rate_{sensorId}_{currentSecond}";
-
-        lock (LockObject)
-        {
-            if (!_cache.TryGetValue(cacheKey, out int requestCount))
-            {
-                _cache.Set(cacheKey, 1, TimeSpan.FromSeconds(2));
-                return false;
-            }
-
-            if (requestCount >= MaxMessagesPerSecond)
-            {
-                return true;
-            }
-
-            _cache.Set(cacheKey, requestCount + 1, TimeSpan.FromSeconds(2));
-            return false;
-        }
-    }
 
     public bool IsReplayAttack(string sensorId, int messageId, DateTime timestamp)
     {
