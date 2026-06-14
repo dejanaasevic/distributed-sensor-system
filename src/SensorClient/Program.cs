@@ -1,8 +1,8 @@
-﻿using SensorClient;
+using SensorClient;
 using System.Net.Http.Json;
 
 var httpClient = new HttpClient();
-var serverUrl = "http://localhost:5001/api/ingest";
+var serverUrl = Environment.GetEnvironmentVariable("INGEST_URL") ?? "http://localhost:5001/api/ingest";
 
 Random random = new Random();
 
@@ -15,7 +15,10 @@ double alarmThreshold3 = random.NextDouble() * (maxTemperature - alarmThreshold2
 SensorConfig config = new SensorConfig(minTemperature, maxTemperature, alarmThreshold1, alarmThreshold2, alarmThreshold3, DataQuality.GOOD);
 Sensor sensor = new Sensor(config);
 
-Console.Clear();
+if (!Console.IsOutputRedirected)
+{
+    try { Console.Clear(); } catch {}
+}
 try
 {
     var response = await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
@@ -52,8 +55,23 @@ _ = sensor.RunAsync(httpClient, serverUrl);
 
 while (true)
 {
-    Console.SetCursorPosition(24, 8);
+    if (Console.IsInputRedirected)
+    {
+        await Task.Delay(Timeout.Infinite);
+    }
+
+    try
+    {
+        Console.SetCursorPosition(24, 8);
+    }
+    catch {}
+
     string? input = Console.ReadLine();
+
+    if (input == null)
+    {
+        await Task.Delay(Timeout.Infinite);
+    }
 
     if (input == "1")
     {
@@ -91,7 +109,10 @@ while (true)
     }
     else if (input == "7")
     {
-        Console.Clear();
+        if (!Console.IsOutputRedirected)
+        {
+            try { Console.Clear(); } catch {}
+        }
         Environment.Exit(0);
     }
 
@@ -113,27 +134,36 @@ public static class ConsoleManager
     {
         lock (_consoleLock)
         {
-            Console.Clear();
-            Console.SetCursorPosition(0, 0);
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"======================== ATTACK SIMULATION ({friendlyName}) ========================");
-            Console.ResetColor();
-            Console.WriteLine(" 1. Inject Out-of-Bounds Data Payload  | 5. Trigger DoS Burst Flood Attack");
-            Console.WriteLine(" 2. Inject Tampered Cryptic Signatures | 6. Suppress Attacks (Restore Baseline)");
-            Console.WriteLine(" 3. Inject Replay Outdated Sequence IDs| 7. Terminate Process Application");
-            Console.WriteLine(" 4. Trigger Inactivity Silent Dropout  |");
-            Console.WriteLine("-------------------------------------------------------------------------------------");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(" Notice: Dashboard menu remains fixed.");
-            Console.ResetColor();
-            Console.WriteLine();
-            Console.Write("Select an option (1-7): ");
-            Console.WriteLine();
+            if (Console.IsOutputRedirected)
+            {
+                Console.WriteLine($"======================== ATTACK SIMULATION ({friendlyName}) ========================");
+                return;
+            }
+            try
+            {
+                Console.Clear();
+                Console.SetCursorPosition(0, 0);
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"======================== ATTACK SIMULATION ({friendlyName}) ========================");
+                Console.ResetColor();
+                Console.WriteLine(" 1. Inject Out-of-Bounds Data Payload  | 5. Trigger DoS Burst Flood Attack");
+                Console.WriteLine(" 2. Inject Tampered Cryptic Signatures | 6. Suppress Attacks (Restore Baseline)");
+                Console.WriteLine(" 3. Inject Replay Outdated Sequence IDs| 7. Terminate Process Application");
+                Console.WriteLine(" 4. Trigger Inactivity Silent Dropout  |");
+                Console.WriteLine("-------------------------------------------------------------------------------------");
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine(" Notice: Dashboard menu remains fixed.");
+                Console.ResetColor();
+                Console.WriteLine();
+                Console.Write("Select an option (1-7): ");
+                Console.WriteLine();
 
-            Console.SetCursorPosition(0, 11);
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("=============================== LIVE MONITORING STREAM ===============================");
-            Console.ResetColor();
+                Console.SetCursorPosition(0, 11);
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("=============================== LIVE MONITORING STREAM ===============================");
+                Console.ResetColor();
+            }
+            catch {}
         }
     }
 
@@ -141,10 +171,15 @@ public static class ConsoleManager
     {
         lock (_consoleLock)
         {
-            Console.SetCursorPosition(0, 8);
-            Console.Write(new string(' ', Console.WindowWidth - 1));
-            Console.SetCursorPosition(0, 8);
-            Console.Write("Select an option (1-7): ");
+            if (Console.IsOutputRedirected) return;
+            try
+            {
+                Console.SetCursorPosition(0, 8);
+                Console.Write(new string(' ', Console.WindowWidth - 1));
+                Console.SetCursorPosition(0, 8);
+                Console.Write("Select an option (1-7): ");
+            }
+            catch {}
         }
     }
 
@@ -152,38 +187,50 @@ public static class ConsoleManager
     {
         lock (_consoleLock)
         {
-            int preservedLeft = Console.CursorLeft;
-            int preservedTop = Console.CursorTop;
-
-            int maximumAllowedLogLine = Console.WindowHeight > 1 ? Console.WindowHeight - 1 : 28;
-
-            if (_currentLogLine >= maximumAllowedLogLine)
+            if (Console.IsOutputRedirected)
             {
-                for (int i = LogStartLine; i <= maximumAllowedLogLine; i++)
+                Console.WriteLine(logMessage);
+                return;
+            }
+            try
+            {
+                int preservedLeft = Console.CursorLeft;
+                int preservedTop = Console.CursorTop;
+
+                int maximumAllowedLogLine = Console.WindowHeight > 1 ? Console.WindowHeight - 1 : 28;
+
+                if (_currentLogLine >= maximumAllowedLogLine)
                 {
-                    Console.SetCursorPosition(0, i);
-                    Console.Write(new string(' ', Console.WindowWidth - 1));
+                    for (int i = LogStartLine; i <= maximumAllowedLogLine; i++)
+                    {
+                        Console.SetCursorPosition(0, i);
+                        Console.Write(new string(' ', Console.WindowWidth - 1));
+                    }
+                    _currentLogLine = LogStartLine;
                 }
-                _currentLogLine = LogStartLine;
+
+                Console.SetCursorPosition(0, _currentLogLine);
+                Console.ForegroundColor = logColor;
+                Console.BackgroundColor = backColor;
+
+                string paddedMessage = logMessage.PadRight(Console.WindowWidth - 1);
+                Console.Write(paddedMessage);
+                Console.ResetColor();
+
+                _currentLogLine++;
+
+                if (preservedTop == 8)
+                {
+                    Console.SetCursorPosition(preservedLeft, preservedTop);
+                }
+                else
+                {
+                    Console.SetCursorPosition(24, 8);
+                }
             }
-
-            Console.SetCursorPosition(0, _currentLogLine);
-            Console.ForegroundColor = logColor;
-            Console.BackgroundColor = backColor;
-
-            string paddedMessage = logMessage.PadRight(Console.WindowWidth - 1);
-            Console.Write(paddedMessage);
-            Console.ResetColor();
-
-            _currentLogLine++;
-
-            if (preservedTop == 8)
+            catch
             {
-                Console.SetCursorPosition(preservedLeft, preservedTop);
-            }
-            else
-            {
-                Console.SetCursorPosition(24, 8);
+                Console.WriteLine(logMessage);
             }
         }
     }
