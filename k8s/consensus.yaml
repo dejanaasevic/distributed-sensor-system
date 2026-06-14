@@ -15,9 +15,9 @@ spec:
         app: consensus
     spec:
       initContainers:
-      - name: wait-for-db
+      - name: wait-for-ingestion
         image: busybox:1.36
-        command: ['sh', '-c', 'until nc -z db 5432; do echo waiting for db; sleep 2; done;']
+        command: ['sh', '-c', 'until nc -z ingestion-service 80; do echo waiting for ingestion; sleep 2; done;']
       containers:
       - name: consensus
         image: consensus-service:latest

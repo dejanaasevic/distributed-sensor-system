@@ -29,6 +29,8 @@ namespace IngestionService.Controllers
         [HttpPost]
         public async Task<IActionResult> Ingest([FromBody] SensorMessageDto dto)
         {
+            Console.WriteLine($"Received message from Sensor {dto.SensorId} with Message ID {dto.MessageId} at {DateTime.UtcNow:HH:mm:ss}");
+
             // Core DDoS Protection Verification
             if (_blockManager.RecordRequestAndCheckBlock(dto.SensorId))
             {
@@ -41,6 +43,8 @@ namespace IngestionService.Controllers
                 return BadRequest($"Sensor with ID {dto.SensorId} not found.");
             }
 
+            Console.WriteLine("Passed finding");
+
             // Replay Attack Control
             if (_securityService.IsReplayAttack(dto.SensorId, dto.MessageId, dto.Timestamp))
             {
@@ -49,6 +53,8 @@ namespace IngestionService.Controllers
                 return BadRequest("Security violation: Potential Replay Attack detected.");
             }
 
+            Console.WriteLine("Passed replay attack check");
+
             // Asymmetric Crypto Verification
             if (!_securityService.VerifySignature(dto, sensor.PublicKey))
             {
@@ -56,6 +62,8 @@ namespace IngestionService.Controllers
                 await _db.SaveChangesAsync();
                 return BadRequest("Security violation: Cryptographic signature verification failed.");
             }
+
+            Console.WriteLine("Passed signature verification");
 
             DecryptedPayloadDTO? decryptedData = _securityService.DecryptMessage(dto, sensor.SymmetricKey);
             if (decryptedData == null)
@@ -106,7 +114,9 @@ namespace IngestionService.Controllers
             int existingSensorsCount = await _db.Sensors.CountAsync();
             int currentOrdinal = existingSensorsCount + 1;
 
-            sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKey);
+            Console.WriteLine("Registering sensor with public key: " + dto.PublicKeyXml);
+
+            sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKeyXml);
 
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();

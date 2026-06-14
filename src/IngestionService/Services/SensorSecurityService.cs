@@ -49,9 +49,13 @@ public class SensorSecurityService : ISensorSecurityService
 
     public bool VerifySignature(SensorMessageDto message, string publicKeyPem)
     {
+
+        Console.WriteLine("Veryfing signature");
         try
         {
             if (string.IsNullOrEmpty(publicKeyPem)) return false;
+
+            Console.WriteLine("passed public key check");
 
             using var rsa = RSA.Create();
             rsa.ImportFromPem(publicKeyPem);
@@ -64,6 +68,7 @@ public class SensorSecurityService : ISensorSecurityService
         }
         catch
         {
+            Console.WriteLine("Signature verification failed due to an exception.");
             return false;
         }
     }
