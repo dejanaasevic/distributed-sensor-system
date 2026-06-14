@@ -3,6 +3,7 @@ using IngestionService.DTO;
 using IngestionService.Models;
 using IngestionService.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace IngestionService.Controllers
 {
@@ -117,11 +118,14 @@ namespace IngestionService.Controllers
                 return BadRequest($"Sensor with ID {dto.Id} already exists.");
             }
 
+            int existingSensorsCount = await _db.Sensors.CountAsync();
+            int currentOrdinal = existingSensorsCount + 1;
+
             sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKey);
 
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
-            return Ok();
+            return Ok(new { Ordinal = currentOrdinal });
         }
 
         [HttpPost("block/{sensorId}")]

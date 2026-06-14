@@ -51,7 +51,7 @@ namespace SensorClient
                 background = ConsoleColor.DarkRed;
             }
 
-            string formattedString = $"[{mode}] {Config.Id} - {Math.Round(temperature, 2)}°C - MsgId: {MessageId} - {DateTime.UtcNow:HH:mm:ss}";
+            string formattedString = $"[{mode}] {Config.FriendlyName} - {Math.Round(temperature, 2)}°C - MsgId: {MessageId} - {DateTime.UtcNow:HH:mm:ss}";
             ConsoleManager.WriteLog(formattedString, foreground, background);
         }
 
@@ -64,14 +64,14 @@ namespace SensorClient
                     var remainingSeconds = (BlockedUntil.Value - DateTime.UtcNow).TotalSeconds;
                     if (remainingSeconds > 0)
                     {
-                        ConsoleManager.WriteLog($"[BLOCKED] {Config.Id} - Server rejection active. Cooldown: {Math.Ceiling(remainingSeconds)}s remaining...", ConsoleColor.Red);
-                        await Task.Delay(1000); 
+                        ConsoleManager.WriteLog($"[BLOCKED] {Config.FriendlyName} - Server rejection active. Cooldown: {Math.Ceiling(remainingSeconds)}s remaining...", ConsoleColor.Red);
+                        await Task.Delay(1000);
                         continue;
                     }
                     else
                     {
                         BlockedUntil = null;
-                        ConsoleManager.WriteLog($"[RESTORED] {Config.Id} - Server block expired. Resuming standard telemetry reporting.", ConsoleColor.Green);
+                        ConsoleManager.WriteLog($"[RESTORED] {Config.FriendlyName} - Server block expired. Resuming standard telemetry reporting.", ConsoleColor.Green);
                     }
                 }
                 if (IsInactivityAttack)
@@ -90,7 +90,6 @@ namespace SensorClient
                 }
 
                 int priority = CheckAlarm(temperature);
-                PrintToConsole(temperature, priority, currentMode);
 
                 var internalPayload = new
                 {
@@ -105,12 +104,8 @@ namespace SensorClient
                 using (Aes aes = Aes.Create())
                 {
                     aes.Key = Convert.FromBase64String(Config.SymmetricKey);
-
                     byte[] ivBytes = new byte[16];
-                    using (var rng = new RNGCryptoServiceProvider())
-                    {
-                        rng.GetBytes(ivBytes);
-                    }
+                    using (var rng = new RNGCryptoServiceProvider()) { rng.GetBytes(ivBytes); }
                     aes.IV = ivBytes;
                     ivString = Convert.ToBase64String(aes.IV);
 
@@ -126,7 +121,7 @@ namespace SensorClient
                 if (IsReplayAttack)
                 {
                     msgIdToSend = 1;
-                    timestampToSend = DateTime.UtcNow.AddMinutes(-10); 
+                    timestampToSend = DateTime.UtcNow.AddMinutes(-10);
                     currentMode = "ATTACK: REPLAY";
                 }
 
@@ -144,7 +139,6 @@ namespace SensorClient
                     {
                         rsa.FromXmlString(Config.PrivateKeyXml);
                         byte[] dataBytes = Encoding.UTF8.GetBytes(rawDataToSign);
-
                         byte[] signatureBytes = rsa.SignData(dataBytes, CryptoConfig.MapNameToOID("SHA256"));
                         signature = Convert.ToBase64String(signatureBytes);
                     }
@@ -155,7 +149,7 @@ namespace SensorClient
                     if (TriggerFloodAttack)
                     {
                         PrintToConsole(temperature, priority, "ATTACK: DoS FLOOD");
-                        ConsoleManager.WriteLog($"[!] Launching DoS Flood attack from {Config.Id}...", ConsoleColor.Red, ConsoleColor.DarkYellow);
+                        ConsoleManager.WriteLog($"[!] Launching DoS Flood attack from {Config.FriendlyName}...", ConsoleColor.Red, ConsoleColor.DarkYellow);
                         for (int i = 0; i < 15; i++)
                         {
                             var floodMessage = new SensorMessage(Config.Id, MessageId++, DateTime.UtcNow, ivString, ciphertext, signature);
@@ -174,11 +168,12 @@ namespace SensorClient
                 }
                 catch (HttpRequestException)
                 {
-                    ConsoleManager.WriteLog($"[{Config.Id}] Error: Server unreachable, message dropped.", ConsoleColor.Gray);
+                    ConsoleManager.WriteLog($"[{Config.FriendlyName}] Error: Server unreachable, message dropped.", ConsoleColor.Gray);
                 }
 
                 await Task.Delay(_random.Next(1000, 5000));
             }
         }
+
     }
 }

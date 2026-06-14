@@ -15,11 +15,15 @@ namespace SensorClient
 
         public string SymmetricKey { get; set; }     
         public string PublicKeyXml { get; set; }      
-        public string PrivateKeyXml { get; set; }     
+        public string PrivateKeyXml { get; set; }   
+        
+        public string FriendlyName { get; set; }    
 
-        public SensorConfig(string id, double minTemperature, double maxTemperature, double alarmThreshold1, double alarmThreshold2, double alarmThreshold3, DataQuality quality)
+        public SensorConfig(double minTemperature, double maxTemperature, double alarmThreshold1, double alarmThreshold2, double alarmThreshold3, DataQuality quality)
         {
-            Id = id;
+            Id = Guid.NewGuid().ToString();
+
+            FriendlyName = "SENSOR-WAITING";
             MinTemperature = minTemperature;
             MaxTemperature = maxTemperature;
             AlarmThreshold1 = alarmThreshold1;

@@ -5,89 +5,89 @@ var httpClient = new HttpClient();
 var serverUrl = "http://localhost:5001/api/ingest";
 
 Random random = new Random();
-var sensors = new List<Sensor>();
 
-for (int i = 1; i <= 5; i++)
-{
-    string id = $"SENSOR-{i}";
-    double minTemperature = random.NextDouble() * 40.0 + 20.0; // Realistic values between 20°C and 60°C
-    double maxTemperature = random.NextDouble() * (100.0 - minTemperature) + minTemperature;
-    double alarmThreshold1 = random.NextDouble() * (maxTemperature - minTemperature) + minTemperature;
-    double alarmThreshold2 = random.NextDouble() * (maxTemperature - alarmThreshold1) + alarmThreshold1;
-    double alarmThreshold3 = random.NextDouble() * (maxTemperature - alarmThreshold2) + alarmThreshold2;
+double minTemperature = random.NextDouble() * 40.0 + 20.0;
+double maxTemperature = random.NextDouble() * (100.0 - minTemperature) + minTemperature;
+double alarmThreshold1 = random.NextDouble() * (maxTemperature - minTemperature) + minTemperature;
+double alarmThreshold2 = random.NextDouble() * (maxTemperature - alarmThreshold1) + alarmThreshold1;
+double alarmThreshold3 = random.NextDouble() * (maxTemperature - alarmThreshold2) + alarmThreshold2;
 
-    // The constructor handles high-entropy CSPRNG cryptographic key generation automatically
-    SensorConfig config = new SensorConfig(id, minTemperature, maxTemperature, alarmThreshold1, alarmThreshold2, alarmThreshold3, DataQuality.GOOD);
-    Sensor sensor = new Sensor(config);
-    sensors.Add(sensor);
-}
+SensorConfig config = new SensorConfig(minTemperature, maxTemperature, alarmThreshold1, alarmThreshold2, alarmThreshold3, DataQuality.GOOD);
+Sensor sensor = new Sensor(config);
 
 Console.Clear();
-foreach (var sensor in sensors)
+try
 {
-    try
+    var response = await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
+
+    if (response.IsSuccessStatusCode)
     {
-        // Transmits configuration containing SymmetricKey and PublicKeyXml to the server database
-        await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
-        Console.WriteLine($"{sensor.Config.Id} registered with secure keys successfully.");
+        var serverResponse = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+
+        if (serverResponse != null)
+        {
+            sensor.Config.FriendlyName = $"SENSOR-{serverResponse.Ordinal}";
+        }
+
+        Console.WriteLine($"Successfully registered! Server assigned identifier: {sensor.Config.FriendlyName}");
     }
-    catch (HttpRequestException)
+    else
     {
-        Console.WriteLine($"{sensor.Config.Id} registration failed.");
+        Console.WriteLine("Server rejected registration. Maximum threshold of 5 active nodes reached.");
+        sensor.Config.FriendlyName = "SENSOR-REJECTED";
     }
+}
+catch (HttpRequestException)
+{
+    Console.WriteLine("Server is unreachable. Launching local isolated fallback mode.");
+    sensor.Config.FriendlyName = "SENSOR-LOCAL";
 }
 
 Console.WriteLine("\nInitializing security dashboard layout viewport...");
 Thread.Sleep(1500);
 
-ConsoleManager.DrawMenuLayout();
+ConsoleManager.DrawMenuLayout(sensor.Config.FriendlyName);
 
-foreach (var sensor in sensors)
-{
-    _ = sensor.RunAsync(httpClient, serverUrl);
-}
+_ = sensor.RunAsync(httpClient, serverUrl);
 
 while (true)
 {
     Console.SetCursorPosition(24, 8);
-    string input = Console.ReadLine();
+    string? input = Console.ReadLine();
 
     if (input == "1")
     {
-        sensors[0].IsOutOfBoundsAttack = true;
-        ConsoleManager.WriteLog("[ATTACK ENGAGED] SENSOR-1 set to inject Out-of-Bounds metric (9999.9°C).", ConsoleColor.Magenta);
+        sensor.IsOutOfBoundsAttack = true;
+        ConsoleManager.WriteLog($"[ATTACK ENGAGED] {sensor.Config.FriendlyName} set to inject Out-of-Bounds metric (9999.9°C).", ConsoleColor.Magenta);
     }
     else if (input == "2")
     {
-        sensors[1].IsBadSignatureAttack = true;
-        ConsoleManager.WriteLog("[ATTACK ENGAGED] SENSOR-2 set to transmit Malformed Crypto Signatures.", ConsoleColor.Magenta);
+        sensor.IsBadSignatureAttack = true;
+        ConsoleManager.WriteLog($"[ATTACK ENGAGED] {sensor.Config.FriendlyName} set to transmit Malformed Crypto Signatures.", ConsoleColor.Magenta);
     }
     else if (input == "3")
     {
-        sensors[2].IsReplayAttack = true;
-        ConsoleManager.WriteLog("[ATTACK ENGAGED] SENSOR-3 set to loop Stale sequence ID messages.", ConsoleColor.Magenta);
+        sensor.IsReplayAttack = true;
+        ConsoleManager.WriteLog($"[ATTACK ENGAGED] {sensor.Config.FriendlyName} set to loop Stale sequence ID messages.", ConsoleColor.Magenta);
     }
     else if (input == "4")
     {
-        sensors[3].IsInactivityAttack = true;
-        ConsoleManager.WriteLog("[ATTACK ENGAGED] SENSOR-4 silenced. Simulating critical node failure drop.", ConsoleColor.Magenta);
+        sensor.IsInactivityAttack = true;
+        ConsoleManager.WriteLog($"[ATTACK ENGAGED] {sensor.Config.FriendlyName} silenced. Simulating critical node failure drop.", ConsoleColor.Magenta);
     }
     else if (input == "5")
     {
-        sensors[4].TriggerFloodAttack = true;
-        ConsoleManager.WriteLog("[ATTACK ENGAGED] SENSOR-5 launching massive burst-rate Denial of Service (DoS) flood.", ConsoleColor.Magenta);
+        sensor.TriggerFloodAttack = true;
+        ConsoleManager.WriteLog($"[ATTACK ENGAGED] {sensor.Config.FriendlyName} launching massive burst-rate Denial of Service (DoS) flood.", ConsoleColor.Magenta);
     }
     else if (input == "6")
     {
-        foreach (var s in sensors)
-        {
-            s.IsOutOfBoundsAttack = false;
-            s.IsBadSignatureAttack = false;
-            s.IsReplayAttack = false;
-            s.IsInactivityAttack = false;
-            s.TriggerFloodAttack = false;
-        }
-        ConsoleManager.WriteLog("[SYSTEM RESTORED] All anomaly parameters mitigated. Sensors reporting standard data streams.", ConsoleColor.Green);
+        sensor.IsOutOfBoundsAttack = false;
+        sensor.IsBadSignatureAttack = false;
+        sensor.IsReplayAttack = false;
+        sensor.IsInactivityAttack = false;
+        sensor.TriggerFloodAttack = false;
+        ConsoleManager.WriteLog($"[SYSTEM RESTORED] All anomaly parameters mitigated for {sensor.Config.FriendlyName}.", ConsoleColor.Green);
     }
     else if (input == "7")
     {
@@ -98,23 +98,28 @@ while (true)
     ConsoleManager.RefreshInputPrompt();
 }
 
+public class RegisterResponse
+{
+    public int Ordinal { get; set; }
+}
+
 public static class ConsoleManager
 {
     private static readonly object _consoleLock = new object();
     private static int _currentLogLine = 14;
     private const int LogStartLine = 14;
 
-    public static void DrawMenuLayout()
+    public static void DrawMenuLayout(string friendlyName)
     {
         lock (_consoleLock)
         {
             Console.Clear();
             Console.SetCursorPosition(0, 0);
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("================================ ATTACK SIMULATION ================================");
+            Console.WriteLine($"======================== ATTACK SIMULATION ({friendlyName}) ========================");
             Console.ResetColor();
             Console.WriteLine(" 1. Inject Out-of-Bounds Data Payload  | 5. Trigger DoS Burst Flood Attack");
-            Console.WriteLine(" 2. Inject Tampered Cryptic Signatures | 6. Suppress Attacks (Restore Baseline Nodes)");
+            Console.WriteLine(" 2. Inject Tampered Cryptic Signatures | 6. Suppress Attacks (Restore Baseline)");
             Console.WriteLine(" 3. Inject Replay Outdated Sequence IDs| 7. Terminate Process Application");
             Console.WriteLine(" 4. Trigger Inactivity Silent Dropout  |");
             Console.WriteLine("-------------------------------------------------------------------------------------");
