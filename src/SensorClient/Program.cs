@@ -21,7 +21,21 @@ if (!Console.IsOutputRedirected)
 }
 try
 {
-    var response = await httpClient.PostAsJsonAsync($"{serverUrl}/register", sensor.Config);
+    var registrationPayload = new
+    {
+        Id = sensor.Config.Id,
+        MinTemperature = sensor.Config.MinTemperature,
+        MaxTemperature = sensor.Config.MaxTemperature,
+        Quality = sensor.Config.Quality,
+        AlarmThreshold1 = sensor.Config.AlarmThreshold1,
+        AlarmThreshold2 = sensor.Config.AlarmThreshold2,
+        AlarmThreshold3 = sensor.Config.AlarmThreshold3,
+        PublicKeyXml = sensor.Config.PublicKeyXml,
+        SymmetricKey = sensor.Config.SymmetricKey
+    };
+
+
+    var response = await httpClient.PostAsJsonAsync($"{serverUrl}/register", registrationPayload);
 
     if (response.IsSuccessStatusCode)
     {

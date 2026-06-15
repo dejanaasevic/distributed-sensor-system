@@ -12,5 +12,6 @@ namespace IngestionService.DTO
         public double AlarmThreshold2 { get; set; }
         public double AlarmThreshold3 { get; set; }
         public string PublicKeyXml { get; set; } = string.Empty;
+        public string SymmetricKey { get; set; } = string.Empty;
     }
 }

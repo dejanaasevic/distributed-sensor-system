@@ -49,8 +49,7 @@ public class SensorSecurityService : ISensorSecurityService
 
     public bool VerifySignature(SensorMessageDto message, string publicKeyPem)
     {
-
-        Console.WriteLine("Veryfing signature");
+        Console.WriteLine("Verifying signature");
         try
         {
             if (string.IsNullOrEmpty(publicKeyPem)) return false;
@@ -58,17 +57,19 @@ public class SensorSecurityService : ISensorSecurityService
             Console.WriteLine("passed public key check");
 
             using var rsa = RSA.Create();
-            rsa.ImportFromPem(publicKeyPem);
+            rsa.FromXmlString(publicKeyPem);
+            string formattedTime = message.Timestamp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
 
-            string rawData = $"{message.SensorId}:{message.MessageId}:{message.Timestamp:O}:{message.Ciphertext}";
+            string rawData = $"{message.SensorId}:{message.MessageId}:{formattedTime}:{message.Ciphertext}";
+
             byte[] dataBytes = Encoding.UTF8.GetBytes(rawData);
             byte[] signatureBytes = Convert.FromBase64String(message.Signature);
 
             return rsa.VerifyData(dataBytes, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         }
-        catch
+        catch (Exception ex)
         {
-            Console.WriteLine("Signature verification failed due to an exception.");
+            Console.WriteLine($"Signature verification failed due to an exception: {ex.Message}");
             return false;
         }
     }

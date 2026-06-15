@@ -118,6 +118,8 @@ namespace IngestionService.Controllers
 
             sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKeyXml);
 
+            sensor.SymmetricKey = dto.SymmetricKey;
+
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
             return Ok(new { Ordinal = currentOrdinal });
