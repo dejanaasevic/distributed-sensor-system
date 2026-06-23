@@ -13,7 +13,7 @@ class Program
 
         connection.On<string>("ReceiveNotification", (message) =>
         {
-            Console.WriteLine($"[Alarm] {message}");
+            Console.WriteLine($"{message}");
         });
 
         connection.On<string>("ReceiveTemperature", (message) =>

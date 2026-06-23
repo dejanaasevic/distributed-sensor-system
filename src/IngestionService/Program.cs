@@ -25,7 +25,7 @@ builder.Services.AddHttpClient();
 var app = builder.Build();
 
 app.UseHttpsRedirection();
-// app.UseIpRateLimiting();
+app.UseIpRateLimiting();
 app.MapControllers();
 app.MapHealthChecks("/health");
 

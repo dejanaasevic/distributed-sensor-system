@@ -1,5 +1,6 @@
 using ConsensusService.Data;
 using ConsensusService.Models;
+using ConsensusService.Services;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,11 +24,14 @@ namespace ConsensusService
         private string _hubUrl;
         private readonly IConfiguration _configuration;
 
-        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration)
+        private readonly IAlarmNotificationService _alarmNotificationService;
+
+        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration, IAlarmNotificationService alarmNotificationService)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _configuration = configuration;
+            _alarmNotificationService = alarmNotificationService;
 
             // read url from configuration
             _hubUrl = _configuration["NotificationHubUrl"] ?? "http://notification:8080/notificationHub";
@@ -39,13 +43,15 @@ namespace ConsensusService
 
             // connect to notification hub
             _connection = new HubConnectionBuilder().WithUrl(_hubUrl).WithAutomaticReconnect().Build();
-            
-            try { 
+
+            try
+            {
                 await _connection.StartAsync(stoppingToken);
             }
 
-            catch (Exception ex) {
-                _logger.LogWarning("Could not connect to NotificationHub: {msg}", ex.Message); 
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Could not connect to NotificationHub: {msg}", ex.Message);
             }
 
             // Align execution to run every minute
@@ -57,7 +63,7 @@ namespace ConsensusService
                     var now = DateTime.UtcNow;
                     var delayMs = (60 - now.Second) * 1000 - now.Millisecond;
                     if (delayMs <= 0) delayMs = 60000;
-                    
+
                     _logger.LogInformation("Waiting {seconds}s for the next minute consensus calculation window...", Math.Round(delayMs / 1000.0, 1));
                     await Task.Delay(delayMs, stoppingToken);
 
@@ -153,7 +159,7 @@ namespace ConsensusService
 
             int N = sensorProposals.Count;
             var proposalsList = sensorProposals.Select(p => p.ProposedValue).OrderBy(v => v).ToList();
-            
+
             // 2. Apply Byzantine Fault Tolerance (BFT) algorithm on the sensor proposals
             // Max tolerable malicious nodes: f = (N - 1) / 3
             int f = (N - 1) / 3;
@@ -205,10 +211,8 @@ namespace ConsensusService
             await db.SaveChangesAsync(stoppingToken);
             _logger.LogInformation("Successfully saved consensus value {value}°C to the database.", Math.Round(consensusValue, 2));
 
-            if (_connection.State == HubConnectionState.Connected)
-            {
-                await _connection.InvokeAsync("SendNotification", $"[CONSENSUS] New consensus value: {Math.Round(consensusValue, 2)}°C at {DateTime.UtcNow:HH:mm:ss}");
-            }
+            await _alarmNotificationService.SendNotificationAsync($"[CONSENSUS] New consensus value: {Math.Round(consensusValue, 2)}°C at {DateTime.UtcNow:HH:mm:ss}");
+
         }
     }
 }

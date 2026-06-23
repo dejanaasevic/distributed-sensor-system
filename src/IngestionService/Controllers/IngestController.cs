@@ -58,10 +58,10 @@ namespace IngestionService.Controllers
             // Asymmetric Crypto Verification
             if (!_securityService.VerifySignature(dto, sensor.PublicKey))
             {
-                 sensor.Quality = DataQuality.BAD;
-                 await _db.SaveChangesAsync();
-                 return BadRequest("Security violation: Cryptographic signature verification failed.");
-             }
+                sensor.Quality = DataQuality.BAD;
+                await _db.SaveChangesAsync();
+                return BadRequest("Security violation: Cryptographic signature verification failed.");
+            }
 
             Console.WriteLine("Passed signature verification");
 
@@ -83,7 +83,7 @@ namespace IngestionService.Controllers
 
             if (decryptedData.AlarmPriority > 0)
             {
-                string formattedString = $"Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
+                string formattedString = $"[Alarm] Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
                 await _alarmNotificationService.SendNotificationAsync(formattedString);
             }
 
