@@ -129,7 +129,8 @@ namespace SensorClient
                         currentMode = "ATTACK: REPLAY";
                     }
 
-                    string rawDataToSign = $"{Config.Id}:{msgIdToSend}:{timestampToSend:O}:{ciphertext}";
+                    string formattedTime = timestampToSend.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                    string rawDataToSign = $"{Config.Id}:{msgIdToSend}:{formattedTime}:{ciphertext}";
                     string signature;
 
                     if (IsBadSignatureAttack)

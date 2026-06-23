@@ -56,13 +56,12 @@ namespace IngestionService.Controllers
             Console.WriteLine("Passed replay attack check");
 
             // Asymmetric Crypto Verification
-            // if (!_securityService.VerifySignature(dto, sensor.PublicKey))
-            // {
-            //     Console.WriteLine("Ne valja signature");
-            //     sensor.Quality = DataQuality.BAD;
-            //     await _db.SaveChangesAsync();
-            //     return BadRequest("Security violation: Cryptographic signature verification failed.");
-            // }
+            if (!_securityService.VerifySignature(dto, sensor.PublicKey))
+            {
+                 sensor.Quality = DataQuality.BAD;
+                 await _db.SaveChangesAsync();
+                 return BadRequest("Security violation: Cryptographic signature verification failed.");
+             }
 
             Console.WriteLine("Passed signature verification");
 
@@ -107,23 +106,51 @@ namespace IngestionService.Controllers
         public async Task<IActionResult> RegisterSensor([FromBody] SensorRegistrationDto dto)
         {
             var sensor = await _db.Sensors.FindAsync(dto.Id);
+            int ordinal;
+
             if (sensor != null)
             {
-                return BadRequest($"Sensor with ID {dto.Id} already exists.");
+                Console.WriteLine($"[Update] Sensor with ID {dto.Id} alredy exists. Changing keys and configuration...");
+
+                sensor.MinTemperature = dto.MinTemperature;
+                sensor.MaxTemperature = dto.MaxTemperature;
+                sensor.Quality = dto.Quality;
+                sensor.AlarmThreshold1 = dto.AlarmThreshold1;
+                sensor.AlarmThreshold2 = dto.AlarmThreshold2;
+                sensor.AlarmThreshold3 = dto.AlarmThreshold3;
+
+                sensor.PublicKey = dto.PublicKeyXml;
+                sensor.SymmetricKey = dto.SymmetricKey;
+                await _db.SaveChangesAsync();
+
+                var allIds = await _db.Sensors.Select(s => s.Id).ToListAsync();
+                ordinal = allIds.IndexOf(dto.Id) + 1;
+
+                return Ok(new { Ordinal = ordinal });
             }
 
+            // if sensor does not exist, create a new one
             int existingSensorsCount = await _db.Sensors.CountAsync();
-            int currentOrdinal = existingSensorsCount + 1;
+            ordinal = existingSensorsCount + 1;
 
-            Console.WriteLine("Registering sensor with public key: " + dto.PublicKeyXml);
+            Console.WriteLine("Registering sensor with id: " + dto.PublicKeyXml);
 
-            sensor = new Sensor(dto.Id, dto.MinTemperature, dto.MaxTemperature, dto.Quality, dto.AlarmThreshold1, dto.AlarmThreshold2, dto.AlarmThreshold3, dto.PublicKeyXml);
-
-            sensor.SymmetricKey = dto.SymmetricKey;
+            sensor = new Sensor(
+                dto.Id,
+                dto.MinTemperature,
+                dto.MaxTemperature,
+                dto.Quality,
+                dto.AlarmThreshold1,
+                dto.AlarmThreshold2,
+                dto.AlarmThreshold3,
+                dto.PublicKeyXml,
+                dto.SymmetricKey
+            );
 
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
-            return Ok(new { Ordinal = currentOrdinal });
+
+            return Ok(new { Ordinal = ordinal });
         }
 
         [HttpPost("block/{sensorId}")]
