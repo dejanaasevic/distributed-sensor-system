@@ -12,8 +12,8 @@ string hubUrl;
 if (baseUrl == "http://localhost")
 {
     // Docker-compose default fallback: different ports
-    serverUrl = "http://localhost:5001/api/ingest";
-    hubUrl = "http://localhost:5002/notificationHub";
+    serverUrl = "http://192.168.1.144:8080/api/ingest";
+    hubUrl = "http://192.168.1.144:8080/notificationHub";
 }
 else
 {

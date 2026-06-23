@@ -4,7 +4,7 @@ namespace IngestionService.Services
 {
     public interface IAlarmNotificationService
     {
-        Task SendNotificationAsync(string message);
+        Task SendNotificationAsync(string message, int alarmPriority = 0);
         Task SendSensorInactiveAsync(string sensorId);
     }
 
@@ -23,7 +23,7 @@ namespace IngestionService.Services
                 .Build();
         }
 
-        public async Task SendNotificationAsync(string message)
+        public async Task SendNotificationAsync(string message, int alarmPriority = 0)
         {
             // Ensure the connection is started before sending
             if (_connection.State == HubConnectionState.Disconnected)
@@ -32,7 +32,7 @@ namespace IngestionService.Services
             }
 
             // "SendNotification" matches the method name inside your NotificationHub.cs
-            await _connection.InvokeAsync("SendNotification", message);
+            await _connection.InvokeAsync("SendNotification", new Notification { Message = message, alarmPriority = alarmPriority });
         }
 
         public async Task SendSensorInactiveAsync(string sensorId)
@@ -54,5 +54,11 @@ namespace IngestionService.Services
                 await _connection.DisposeAsync();
             }
         }
+    }
+
+    class Notification
+    {
+        public string Message { get; set; }
+        public int alarmPriority { get; set; }
     }
 }

@@ -84,7 +84,7 @@ namespace IngestionService.Controllers
             if (decryptedData.AlarmPriority > 0)
             {
                 string formattedString = $"[Alarm] Sensor {dto.SensorId} triggered alarm with priority {decryptedData.AlarmPriority} with Temperature {decryptedData.Temperature} at {DateTime.UtcNow:HH:mm:ss}";
-                await _alarmNotificationService.SendNotificationAsync(formattedString);
+                await _alarmNotificationService.SendNotificationAsync(formattedString, decryptedData.AlarmPriority);
             }
 
             Console.ResetColor();
