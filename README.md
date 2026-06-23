@@ -101,8 +101,17 @@ minikube start
 # Enable Ingress
 minikube addons enable ingress
 
+# Point Minikube to docker images
+eval $(minikube docker-env)
+
+# Build docker images
+bash scripts/build-images.sh
+
+# Make secrets file
+bash scripts/generate-secrets.sh
+
 # Deploy
-kubectl apply -f k8s/
+bash scripts/just-run.sh
 
 # Get the Ingress IP
 minikube ip
