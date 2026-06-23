@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: snus-system-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api/ingest
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestion-service 
+            port:
+              number: 80            
+      - path: /api/reports
+        pathType: Prefix
+        backend:
+          service:
+            name: report-service   
+            port:
+              number: 80
+      - path: /notificationHub
+        pathType: Prefix
+        backend:
+          service:
+            name: notification-service   
+            port:
+              number: 80

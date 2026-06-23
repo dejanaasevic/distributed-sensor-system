@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consensus-deployment
+  labels:
+    app: consensus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consensus
+  template:
+    metadata:
+      labels:
+        app: consensus
+    spec:
+      initContainers:
+      - name: wait-for-ingestion
+        image: alpine:3.19
+        command: ['sh', '-c', 'until nc -z ingestion-service 80; do echo waiting for ingestion; sleep 2; done;']
+      containers:
+      - name: consensus
+        image: consensus-service:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: connection-string
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
