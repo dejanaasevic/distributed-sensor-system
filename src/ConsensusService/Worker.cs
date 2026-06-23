@@ -1,14 +1,16 @@
+using ConsensusService.Data;
+using ConsensusService.Models;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using ConsensusService.Data;
-using ConsensusService.Models;
 
 namespace ConsensusService
 {
@@ -17,16 +19,34 @@ namespace ConsensusService
         private readonly ILogger<Worker> _logger;
         private readonly IServiceProvider _serviceProvider;
         private const string SystemConsensusId = "SYSTEM-CONSENSUS";
+        private HubConnection _connection;
+        private string _hubUrl;
+        private readonly IConfiguration _configuration;
 
-        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider)
+        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _configuration = configuration;
+
+            // read url from configuration
+            _hubUrl = _configuration["NotificationHubUrl"] ?? "http://notification:8080/notificationHub";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("ConsensusService Worker started.");
+
+            // connect to notification hub
+            _connection = new HubConnectionBuilder().WithUrl(_hubUrl).WithAutomaticReconnect().Build();
+            
+            try { 
+                await _connection.StartAsync(stoppingToken);
+            }
+
+            catch (Exception ex) {
+                _logger.LogWarning("Could not connect to NotificationHub: {msg}", ex.Message); 
+            }
 
             // Align execution to run every minute
             while (!stoppingToken.IsCancellationRequested)
@@ -184,6 +204,11 @@ namespace ConsensusService
 
             await db.SaveChangesAsync(stoppingToken);
             _logger.LogInformation("Successfully saved consensus value {value}°C to the database.", Math.Round(consensusValue, 2));
+
+            if (_connection.State == HubConnectionState.Connected)
+            {
+                await _connection.InvokeAsync("SendNotification", $"[CONSENSUS] New consensus value: {Math.Round(consensusValue, 2)}°C at {DateTime.UtcNow:HH:mm:ss}");
+            }
         }
     }
 }
