@@ -156,6 +156,12 @@ distributed-sensor-system/
     └── SensorNotificationClient/ # Web dashboard
 ```
 
+
+<img width="1336" height="522" alt="ReportsClient" src="https://github.com/user-attachments/assets/bbbf07bd-50c4-46e5-8968-537cdb15f0ce" />
+<img width="1112" height="597" alt="SensorNotificationClient" src="https://github.com/user-attachments/assets/872e6b95-7375-4d9a-bfb5-2faa343aad99" />
+<img width="622" height="567" alt="SensorClient" src="https://github.com/user-attachments/assets/72817850-389b-44a1-9fc5-12b71ab4a123" />
+
+
 ---
 
 ## Tech Stack
