@@ -5,7 +5,10 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using ReportsClient;
 
-string baseUrl = args.Length > 0 ? args[0].TrimEnd('/') : "http://localhost:5001";
+
+string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+DotNetEnv.Env.Load(envPath);
+string baseUrl = Environment.GetEnvironmentVariable("URL") ?? "http://localhost:5001";
 using var httpClient = new HttpClient();
 
 Console.Clear();

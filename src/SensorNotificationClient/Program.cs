@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using System;
 using System.Threading.Tasks;
+using System.IO;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        string hubUrl = "http://192.168.1.144:8080/notificationHub";
+        string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+        DotNetEnv.Env.Load(envPath);
+        string baseUrl = Environment.GetEnvironmentVariable("URL") ?? "http://localhost:5001";
+        string hubUrl = $"{baseUrl}/notificationHub";
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
             .Build();

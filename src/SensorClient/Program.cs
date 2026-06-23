@@ -5,22 +5,15 @@ using System.Threading;
 using System.Threading.Tasks;
 
 var httpClient = new HttpClient();
-string baseUrl = args.Length > 0 ? args[0].TrimEnd('/') : "http://localhost";
+string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+DotNetEnv.Env.Load(envPath);
+
+string baseUrl = Environment.GetEnvironmentVariable("URL") ?? "http://localhost:5001";
 string serverUrl;
 string hubUrl;
 
-if (baseUrl == "http://localhost")
-{
-    // Docker-compose default fallback: different ports
-    serverUrl = "http://192.168.1.144:8080/api/ingest";
-    hubUrl = "http://192.168.1.144:8080/notificationHub";
-}
-else
-{
-    // Standard URL (Ingress or custom base)
-    serverUrl = $"{baseUrl}/api/ingest";
-    hubUrl = $"{baseUrl}/notificationHub";
-}
+serverUrl = $"{baseUrl.TrimEnd('/')}/api/ingest";
+hubUrl = $"{baseUrl.TrimEnd('/')}/notificationHub";
 
 Random random = new Random();
 var sensors = new List<Sensor>();
@@ -28,7 +21,7 @@ var sensors = new List<Sensor>();
 for (int i = 1; i <= 10; i++)
 {
     string id = $"SENSOR-{i}";
-    double minTemperature = random.NextDouble() * 40.0 + 20.0; // Realistic values between 20°C and 60°C
+    double minTemperature = random.NextDouble() * 40.0 + 20.0;
     double maxTemperature = random.NextDouble() * (100.0 - minTemperature) + minTemperature;
     double alarmThreshold1 = random.NextDouble() * (maxTemperature - minTemperature) + minTemperature;
     double alarmThreshold2 = random.NextDouble() * (maxTemperature - alarmThreshold1) + alarmThreshold1;
@@ -42,7 +35,9 @@ for (int i = 1; i <= 10; i++)
 }
 
 Console.Clear();
+//Console.WriteLine(serverUrl);
 Console.WriteLine("=== Registering 10 Sensors with Server ===");
+Console.WriteLine(Environment.GetEnvironmentVariable("URL"));
 foreach (var sensor in sensors)
 {
     try
