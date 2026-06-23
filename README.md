@@ -7,6 +7,9 @@ A distributed system simulating temperature sensors with BFT consensus, cryptogr
 ## Architecture
 
 ```
+                ReportsClient
+                      │
+                      ▼
 SensorClient ──► IngestionService ──► Database 
                       │
                       ▼
@@ -21,8 +24,8 @@ SensorClient ──► IngestionService ──► Database
 | `IngestionService` | REST API that validates, decrypts, and stores incoming sensor data. |
 | `NotificationService` | SignalR hub for broadcasting alarms and sensor status events. |
 | `ConsensusService` | Background worker that calculates a BFT consensus temperature every minute. |
-| `SensorNotificationClient` | Web dashboard for monitoring live sensor readings and alarms. |
-
+| `SensorNotificationClient` | SignalR service for monitoring live sensor readings and alarms. |
+| `ReportsClient` | Client console app that displays sensor consensus data. |
 ---
 
 ## Security Measures
@@ -79,7 +82,6 @@ docker compose up --build
 Services will be available at:
 - Ingestion API: `http://localhost:5001`
 - Notification Hub: `http://localhost:5002/notificationHub`
-- Dashboard: `http://localhost:5003`
 
 To run the sensor client against a remote server (two-machine demo):
 
