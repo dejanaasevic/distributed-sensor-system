@@ -5,6 +5,7 @@ namespace IngestionService.Services
     public interface IAlarmNotificationService
     {
         Task SendNotificationAsync(string message);
+        Task SendSensorInactiveAsync(string sensorId);
     }
 
     public class AlarmNotificationService : IAlarmNotificationService, IAsyncDisposable
@@ -32,6 +33,18 @@ namespace IngestionService.Services
 
             // "SendNotification" matches the method name inside your NotificationHub.cs
             await _connection.InvokeAsync("SendNotification", message);
+        }
+
+        public async Task SendSensorInactiveAsync(string sensorId)
+        {
+            // Ensure the connection is started before sending
+            if (_connection.State == HubConnectionState.Disconnected)
+            {
+                await _connection.StartAsync();
+            }
+
+            // "SendSensorInactive" matches the method name inside your NotificationHub.cs
+            await _connection.InvokeAsync("SendSensorInactive", sensorId);
         }
 
         public async ValueTask DisposeAsync()

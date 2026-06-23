@@ -1,6 +1,7 @@
 using AspNetCoreRateLimit;
 using IngestionService.Data;
 using IngestionService.Services;
+using IngestionService.Workers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -18,6 +19,7 @@ builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>()
 builder.Services.AddSingleton<ISensorBlockManager, SensorBlockManager>();
 builder.Services.AddSingleton<ISensorSecurityService, SensorSecurityService>();
 builder.Services.AddSingleton<IAlarmNotificationService, AlarmNotificationService>();
+builder.Services.AddHostedService<SensorTimeoutWorker>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();

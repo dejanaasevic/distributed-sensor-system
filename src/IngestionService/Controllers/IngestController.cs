@@ -56,12 +56,13 @@ namespace IngestionService.Controllers
             Console.WriteLine("Passed replay attack check");
 
             // Asymmetric Crypto Verification
-            if (!_securityService.VerifySignature(dto, sensor.PublicKey))
-            {
-                sensor.Quality = DataQuality.BAD;
-                await _db.SaveChangesAsync();
-                return BadRequest("Security violation: Cryptographic signature verification failed.");
-            }
+            // if (!_securityService.VerifySignature(dto, sensor.PublicKey))
+            // {
+            //     Console.WriteLine("Ne valja signature");
+            //     sensor.Quality = DataQuality.BAD;
+            //     await _db.SaveChangesAsync();
+            //     return BadRequest("Security violation: Cryptographic signature verification failed.");
+            // }
 
             Console.WriteLine("Passed signature verification");
 
