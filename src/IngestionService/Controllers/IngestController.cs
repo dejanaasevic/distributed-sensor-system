@@ -4,6 +4,7 @@ using IngestionService.Models;
 using IngestionService.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace IngestionService.Controllers
 {
@@ -16,14 +17,16 @@ namespace IngestionService.Controllers
         private readonly ISensorSecurityService _securityService;
         private readonly ISensorBlockManager _blockManager;
         private readonly IAlarmNotificationService _alarmNotificationService;
+        private readonly IMemoryCache _cache;
 
-        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager, IAlarmNotificationService alarmNotificationService)
+        public IngestController(AppDbContext db, IHttpClientFactory httpClientFactory, ISensorSecurityService securityService, ISensorBlockManager blockManager, IAlarmNotificationService alarmNotificationService, IMemoryCache cache)
         {
             _db = db;
             _httpClient = httpClientFactory.CreateClient();
             _securityService = securityService;
             _blockManager = blockManager;
             _alarmNotificationService = alarmNotificationService;
+            _cache = cache;
         }
 
         [HttpPost]
@@ -108,9 +111,11 @@ namespace IngestionService.Controllers
             var sensor = await _db.Sensors.FindAsync(dto.Id);
             int ordinal;
 
+            var cacheKey = $"last_id_{dto.Id}";
+
             if (sensor != null)
             {
-                Console.WriteLine($"[Update] Sensor with ID {dto.Id} alredy exists. Changing keys and configuration...");
+                Console.WriteLine($"[Update] Sensor with ID {dto.Id} already exists. Changing keys and configuration...");
 
                 sensor.MinTemperature = dto.MinTemperature;
                 sensor.MaxTemperature = dto.MaxTemperature;
@@ -121,19 +126,20 @@ namespace IngestionService.Controllers
 
                 sensor.PublicKey = dto.PublicKeyXml;
                 sensor.SymmetricKey = dto.SymmetricKey;
+
                 await _db.SaveChangesAsync();
+
+                _cache.Remove(cacheKey);
 
                 var allIds = await _db.Sensors.Select(s => s.Id).ToListAsync();
                 ordinal = allIds.IndexOf(dto.Id) + 1;
-
                 return Ok(new { Ordinal = ordinal });
             }
 
-            // if sensor does not exist, create a new one
             int existingSensorsCount = await _db.Sensors.CountAsync();
             ordinal = existingSensorsCount + 1;
 
-            Console.WriteLine("Registering sensor with id: " + dto.PublicKeyXml);
+            Console.WriteLine("Registering sensor with id: " + dto.Id);
 
             sensor = new Sensor(
                 dto.Id,
@@ -149,6 +155,8 @@ namespace IngestionService.Controllers
 
             _db.Sensors.Add(sensor);
             await _db.SaveChangesAsync();
+
+            _cache.Remove(cacheKey);
 
             return Ok(new { Ordinal = ordinal });
         }
