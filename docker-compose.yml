@@ -35,3 +35,21 @@ services:
             - 5002:8080
         depends_on:
             - ingestion
+
+    sensor:
+        build: ./src/SensorClient
+        tty: true
+        stdin_open: true
+        environment:
+            - URL=http://ingestion:8080
+        depends_on:
+            - ingestion
+
+    reports:
+        build: ./src/ReportsClient
+        stdin_open: true
+        tty: true
+        environment:
+            - URL=http://ingestion:8080
+        depends_on:
+            - ingestion

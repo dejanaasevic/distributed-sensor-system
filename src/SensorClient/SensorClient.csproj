@@ -13,9 +13,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\.env" Link=".env">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <None Include=".env" Condition="Exists('.env')">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
   </ItemGroup>
 
 </Project>
